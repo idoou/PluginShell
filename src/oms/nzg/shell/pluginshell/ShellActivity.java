@@ -26,6 +26,8 @@ public class ShellActivity extends Activity {
 	public static DexClassLoader mDexClassLoader;
 	public static String mExternalPath;
 	
+	String mMainActivityClassName = "com.tingdong.music.ui.activity.SplashActivity";//"com.example.plugina.MainActivity"
+	
 	public ShellActivity() {
 
 		mExternalPath = getExternalApkPath();
@@ -54,7 +56,9 @@ public class ShellActivity extends Activity {
 	
 	private String getExternalApkPath() {
 		File dir = Environment.getExternalStorageDirectory();
-		File f = new File(dir, "PluginA.apk");
+//		File f = new File(dir, "/DynamicLoadHost/PluginA.apk");
+		File f = new File(dir, "/DynamicLoadHost/SAFMusic.apk");
+		
 		if (f.exists()) {
 			return f.getAbsolutePath();
 			
@@ -63,6 +67,8 @@ public class ShellActivity extends Activity {
 	}
 	
 	private void loadExternalApk(String path) throws Exception {
+		System.out.println(path);
+		
 		mDexClassLoader = new DexClassLoader(path,
 				mContext.getCacheDir().getAbsolutePath(),
 				null, mContext.getClassLoader());
@@ -80,10 +86,37 @@ public class ShellActivity extends Activity {
 		mClassLoader.setAccessible(true);
 		mClassLoader.set(apk, mDexClassLoader);
 		
+		Field mResDir = apkClass.getDeclaredField("mResDir");
+		mResDir.setAccessible(true);
+		mResDir.set(apk, path);
+		
+		Field mResources = apkClass.getDeclaredField("mResources");
+		mResources.setAccessible(true);
+		mResources.set(apk, null);
+		
+		Method getResources = apkClass.getDeclaredMethod("getResources", threadClass);
+		getResources.setAccessible(true);
+		Resources res = (Resources) getResources.invoke(apk, mainThread);
+		
+		System.out.println("println >>> "+res.getString(0x7f080068));
+		
+		
 		Toast.makeText(this, "Load Apk is OK.", Toast.LENGTH_SHORT).show();
 	}
 
+	@SuppressLint("NewApi")
 	public void startApkActivity(View v) {
-		startActivity(new Intent(this, ProxyActivity.class));
+		Class cls;
+		try {
+			cls = mDexClassLoader
+					.loadClass(mMainActivityClassName);
+			System.out.println(cls + "exists ? "+(cls != null));
+			startActivity(new Intent(getApplicationContext(), cls));
+		} catch (ClassNotFoundException e) {
+			// TODO Auto-generated catch block
+			e.printStackTrace();
+		}
+		 
+//		startActivity(new Intent(this, ProxyActivity.class));
 	}
 }
